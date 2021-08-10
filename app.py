@@ -4,6 +4,8 @@ import uuid
 from telebot import TeleBot, types
 from flask import Flask, request
 
+from video_convertor import convert_video, ConversionType
+
 all_content_types_except_video = ['text', 'audio', 'document', 'animation', 'game', 'photo', 'sticker', 'video_note', 'voice', 'contact', 'location', 'venue', 'dice', 'new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message', 'invoice', 'successful_payment', 'connected_website', 'poll', 'passport_data', 'proximity_alert_triggered', 'voice_chat_scheduled', 'voice_chat_started', 'voice_chat_ended', 'voice_chat_participants_invited', 'message_auto_delete_timer_changed']
 videos = {}
 COMPRESS_VIDEO = 'compress'
@@ -33,20 +35,28 @@ def process_video(message):
 @bot.callback_query_handler(func=lambda call: True)
 def command_callback(call):
     command, file_id = call.data.split(':')
-    bot.send_message(call.from_user.id, "Разберусь")
+    bot.send_message(call.from_user.id, "Разбираюсь")
     bot.delete_message(call.from_user.id, call.message.message_id)
     if command == COMPRESS_VIDEO:
-        compress_video(videos[file_id])
+        compress_video(videos[file_id], call.from_user)
     elif command == CREATE_VIDEO_NOTE:
-        create_video_note(videos[file_id])
+        create_video_note(videos[file_id], call.from_user)
 
-def compress_video(file_id):
-    print("compress")
-    print(file_id)
+def get_file_by_id(file_id):
+    file_url = bot.get_file_url(file_id)
+    return bot.download_file('videos/' + file_url.split('/')[-1])
 
-def create_video_note(file_id):
-    print("createnote")
-    print(file_id)
+def compress_video(file_id, user):
+    file_data = get_file_by_id(file_id)
+    file_data = convert_video(file_data, ConversionType.SMALL_SIZE)
+    bot.send_video(user.id, file_data)
+    del file_data
+
+def create_video_note(file_id, user):
+    file_data = get_file_by_id(file_id)
+    file_data = convert_video(file_data, ConversionType.NOTE_SIZE)
+    bot.send_video_note(user.id, file_data)
+    del file_data
 
 @bot.message_handler(content_types=all_content_types_except_video)
 def echo_all(message):
