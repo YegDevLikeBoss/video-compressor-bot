@@ -1,21 +1,68 @@
 import os
+import uuid
 
-import telebot
-
+from telebot import TeleBot, types
 from flask import Flask, request
 
+from video_convertor import convert_video, ConversionType
+
+all_content_types_except_video = ['text', 'audio', 'document', 'animation', 'game', 'photo', 'sticker', 'video_note', 'voice', 'contact', 'location', 'venue', 'dice', 'new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message', 'invoice', 'successful_payment', 'connected_website', 'poll', 'passport_data', 'proximity_alert_triggered', 'voice_chat_scheduled', 'voice_chat_started', 'voice_chat_ended', 'voice_chat_participants_invited', 'message_auto_delete_timer_changed']
+videos = {}
+COMPRESS_VIDEO = 'compress'
+CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
-bot = telebot.TeleBot(TOKEN)
+bot = TeleBot(TOKEN)
 server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Howdy, how are you doing?")
+    bot.send_message(message.chat.id, "Отправь мне видео, всё остальное я расскажу потом")
 
-@bot.message_handler(func=lambda message: True)
+@bot.message_handler(content_types=['video'])
+def process_video(message):
+    video_id = str(message.video.file_id)
+    short_id = str(uuid.uuid4())
+    videos[short_id] = video_id
+
+    markup = types.InlineKeyboardMarkup(row_width=2)
+    itembtn1 = types.InlineKeyboardButton('сжать видео', callback_data=f"{COMPRESS_VIDEO}:{short_id}")
+    itembtn2 = types.InlineKeyboardButton('прислать video note', callback_data=f"{CREATE_VIDEO_NOTE}:{short_id}")
+    markup.add(itembtn1, itembtn2)
+
+    bot.send_message(message.chat.id, "Получил видео, что с ним сделать?", reply_markup=markup)
+
+@bot.callback_query_handler(func=lambda call: True)
+def command_callback(call):
+    command, file_id = call.data.split(':')
+    bot.send_message(call.from_user.id, "Разбираюсь")
+    bot.delete_message(call.from_user.id, call.message.message_id)
+    if command == COMPRESS_VIDEO:
+        compress_video(videos[file_id], call.from_user)
+    elif command == CREATE_VIDEO_NOTE:
+        create_video_note(videos[file_id], call.from_user)
+
+def get_file_by_id(file_id):
+    file_url = bot.get_file_url(file_id)
+    return bot.download_file('videos/' + file_url.split('/')[-1])
+
+def compress_video(file_id, user):
+    file_data = get_file_by_id(file_id)
+    file_data = convert_video(file_data, ConversionType.SMALL_SIZE)
+    bot.send_chat_action(user.id, 'upload_video', timeout=5)
+    bot.send_video(user.id, file_data)
+    del file_data
+
+def create_video_note(file_id, user):
+    file_data = get_file_by_id(file_id)
+    file_data = convert_video(file_data, ConversionType.NOTE_SIZE)
+    bot.send_chat_action(user.id, 'record_video_note', timeout=5)
+    bot.send_video_note(user.id, file_data)
+    del file_data
+
+@bot.message_handler(content_types=all_content_types_except_video)
 def echo_all(message):
-    bot.reply_to(message, message.text)
+    bot.send_message(message.chat.id, "Моя твоя не понимать, лучше скинь видео")
 
 @server.route('/' + TOKEN, methods=['POST'])
 def getMessage():
