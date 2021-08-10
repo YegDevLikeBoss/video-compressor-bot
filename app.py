@@ -15,7 +15,7 @@ def send_welcome(message):
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
-    bot.reply_to(message, message.text)
+    bot.send_message(message.chat.id, "Моя твоя не понимать, лучше скинь видео")
 
 @server.route('/' + TOKEN, methods=['POST'])
 def getMessage():
