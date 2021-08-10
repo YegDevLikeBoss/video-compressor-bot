@@ -11,7 +11,7 @@ server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
-    bot.reply_to(message, "Howdy, how are you doing?")
+    bot.send_message(message.chat.id, "Отправь мне видео, всё остальное я расскажу потом")
 
 @bot.message_handler(func=lambda message: True)
 def echo_all(message):
