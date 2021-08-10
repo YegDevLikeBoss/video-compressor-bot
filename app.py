@@ -5,7 +5,7 @@ import telebot
 from flask import Flask, request
 
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-DEBUG = bool(os.environ.get('DEBUG', False))
+DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
 
@@ -33,5 +33,8 @@ def webhook():
 
 
 if __name__ == "__main__":
-    print(DEBUG)
-    server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
+    if DEBUG == True:
+        bot.remove_webhook()
+        bot.polling()
+    else:
+        server.run(host="0.0.0.0", port=int(os.environ.get('PORT', 5000)))
