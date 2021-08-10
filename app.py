@@ -1,9 +1,13 @@
 import os
+import uuid
 
 from telebot import TeleBot, types
 from flask import Flask, request
 
 all_content_types_except_video = ['text', 'audio', 'document', 'animation', 'game', 'photo', 'sticker', 'video_note', 'voice', 'contact', 'location', 'venue', 'dice', 'new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message', 'invoice', 'successful_payment', 'connected_website', 'poll', 'passport_data', 'proximity_alert_triggered', 'voice_chat_scheduled', 'voice_chat_started', 'voice_chat_ended', 'voice_chat_participants_invited', 'message_auto_delete_timer_changed']
+videos = {}
+COMPRESS_VIDEO = 'compress'
+CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = TeleBot(TOKEN)
@@ -15,17 +19,34 @@ def send_welcome(message):
 
 @bot.message_handler(content_types=['video'])
 def process_video(message):
+    video_id = str(message.video.file_id)
+    short_id = str(uuid.uuid4())
+    videos[short_id] = video_id
+
     markup = types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = types.InlineKeyboardButton('сжать видео', callback_data="compress")
-    itembtn2 = types.InlineKeyboardButton('прислать video note', callback_data="create_note")
+    itembtn1 = types.InlineKeyboardButton('сжать видео', callback_data=f"{COMPRESS_VIDEO}:{short_id}")
+    itembtn2 = types.InlineKeyboardButton('прислать video note', callback_data=f"{CREATE_VIDEO_NOTE}:{short_id}")
     markup.add(itembtn1, itembtn2)
+
     bot.send_message(message.chat.id, "Получил видео, что с ним сделать?", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: True)
-def  test_callback(call):
+def command_callback(call):
+    command, file_id = call.data.split(':')
     bot.send_message(call.from_user.id, "Разберусь")
     bot.delete_message(call.from_user.id, call.message.message_id)
-    print(call.data)
+    if command == COMPRESS_VIDEO:
+        compress_video(videos[file_id])
+    elif command == CREATE_VIDEO_NOTE:
+        create_video_note(videos[file_id])
+
+def compress_video(file_id):
+    print("compress")
+    print(file_id)
+
+def create_video_note(file_id):
+    print("createnote")
+    print(file_id)
 
 @bot.message_handler(content_types=all_content_types_except_video)
 def echo_all(message):
