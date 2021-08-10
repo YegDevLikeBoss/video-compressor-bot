@@ -49,12 +49,14 @@ def get_file_by_id(file_id):
 def compress_video(file_id, user):
     file_data = get_file_by_id(file_id)
     file_data = convert_video(file_data, ConversionType.SMALL_SIZE)
+    bot.send_chat_action(user.id, 'upload_video', timeout=5)
     bot.send_video(user.id, file_data)
     del file_data
 
 def create_video_note(file_id, user):
     file_data = get_file_by_id(file_id)
     file_data = convert_video(file_data, ConversionType.NOTE_SIZE)
+    bot.send_chat_action(user.id, 'record_video_note', timeout=5)
     bot.send_video_note(user.id, file_data)
     del file_data
 
