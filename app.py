@@ -5,7 +5,7 @@ import telebot
 from flask import Flask, request
 
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
-DEBUG = bool(os.environ.get('DEBUG'), False)
+DEBUG = bool(os.environ.get('DEBUG', False))
 bot = telebot.TeleBot(TOKEN)
 server = Flask(__name__)
 
