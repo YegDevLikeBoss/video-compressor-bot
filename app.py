@@ -17,10 +17,12 @@ server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
+    """Handles /start and /help commands"""
     bot.send_message(message.chat.id, "Отправь мне видео, всё остальное я расскажу потом")
 
 @bot.message_handler(content_types=['video'])
 def process_video(message):
+    """Handles video"""
     video_id = str(message.video.file_id)
     short_id = str(uuid.uuid4())
     videos[short_id] = video_id
@@ -34,6 +36,7 @@ def process_video(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def command_callback(call):
+    """Handles inline keyboard button choice"""
     command, file_id = call.data.split(':')
     bot.send_message(call.from_user.id, "Разбираюсь")
     bot.delete_message(call.from_user.id, call.message.message_id)
@@ -46,6 +49,11 @@ def command_callback(call):
         print(e)
 
 def save_file_by_id(file_id):
+    """Gets file from telegram server and saves to
+
+    Args:
+        file_id (str): id of file
+    """
     file_url = bot.get_file_url(file_id)
     file_data = bot.download_file('videos/' + file_url.split('/')[-1])
 
@@ -56,6 +64,15 @@ def save_file_by_id(file_id):
     del file_data
 
 def create_video(file_id, user, conversion_type, chat_action, send_method):
+    """Invoke video creation
+
+    Args:
+        file_id (str): id of file
+        user (type): telegram user
+        conversion_type (enum): creates video note or compresses video
+        chat_action (str): action that bot imitates
+        send_method (function): send function that bot has to use
+    """
     save_file_by_id(file_id)
     bot.send_chat_action(user.id, 'record_video', timeout=90)
     convert_video(file_id, conversion_type)
@@ -70,6 +87,7 @@ def create_video(file_id, user, conversion_type, chat_action, send_method):
 
 @bot.message_handler(content_types=ContentTypes.as_list(ContentTypes.VIDEO))
 def echo_all(message):
+    """Handles all remaining messages"""
     bot.send_message(message.chat.id, "Моя твоя не понимать, лучше скинь видео")
 
 @server.route('/' + TOKEN, methods=['POST'])
