@@ -1,6 +1,7 @@
 import os
 import uuid
 
+import telebot
 from telebot import TeleBot, types
 from flask import Flask, request
 
