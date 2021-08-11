@@ -5,12 +5,10 @@ import telebot
 from telebot import TeleBot, types
 from flask import Flask, request
 
-from video_convertor import convert_video, ConversionType
+from video_convertor import convert_video
+from utils import ConversionType, ContentTypes
 
-all_content_types_except_video = ['text', 'audio', 'document', 'animation', 'game', 'photo', 'sticker', 'video_note', 'voice', 'contact', 'location', 'venue', 'dice', 'new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message', 'invoice', 'successful_payment', 'connected_website', 'poll', 'passport_data', 'proximity_alert_triggered', 'voice_chat_scheduled', 'voice_chat_started', 'voice_chat_ended', 'voice_chat_participants_invited', 'message_auto_delete_timer_changed']
 videos = {}
-COMPRESS_VIDEO = 'compress'
-CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = TeleBot(TOKEN)
@@ -19,10 +17,12 @@ server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
+    """Handles /start and /help commands"""
     bot.send_message(message.chat.id, "Отправь мне видео, всё остальное я расскажу потом")
 
 @bot.message_handler(content_types=['video'])
 def process_video(message):
+    """Handles video"""
     video_id = str(message.video.file_id)
     short_id = str(uuid.uuid4())
     videos[short_id] = video_id
@@ -36,6 +36,7 @@ def process_video(message):
 
 @bot.callback_query_handler(func=lambda call: True)
 def command_callback(call):
+    """Handles inline keyboard button choice"""
     command, file_id = call.data.split(':')
     bot.send_message(call.from_user.id, "Разбираюсь")
     bot.delete_message(call.from_user.id, call.message.message_id)
@@ -48,6 +49,11 @@ def command_callback(call):
         print(e)
 
 def save_file_by_id(file_id):
+    """Gets file from telegram server and saves to
+
+    Args:
+        file_id (str): id of file
+    """
     file_url = bot.get_file_url(file_id)
     file_data = bot.download_file('videos/' + file_url.split('/')[-1])
 
@@ -58,7 +64,17 @@ def save_file_by_id(file_id):
     del file_data
 
 def create_video(file_id, user, conversion_type, chat_action, send_method):
+    """Invoke video creation
+
+    Args:
+        file_id (str): id of file
+        user (type): telegram user
+        conversion_type (enum): creates video note or compresses video
+        chat_action (str): action that bot imitates
+        send_method (function): send function that bot has to use
+    """
     save_file_by_id(file_id)
+    bot.send_chat_action(user.id, 'record_video', timeout=90)
     convert_video(file_id, conversion_type)
     bot.send_chat_action(user.id, chat_action, timeout=5)
     try:
@@ -69,8 +85,9 @@ def create_video(file_id, user, conversion_type, chat_action, send_method):
     except EnvironmentError as e:
         print(e)
 
-@bot.message_handler(content_types=all_content_types_except_video)
+@bot.message_handler(content_types=ContentTypes.as_list(ContentTypes.VIDEO))
 def echo_all(message):
+    """Handles all remaining messages"""
     bot.send_message(message.chat.id, "Моя твоя не понимать, лучше скинь видео")
 
 @server.route('/' + TOKEN, methods=['POST'])
