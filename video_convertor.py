@@ -21,7 +21,7 @@ def convert_to_video_note(file_id):
     clip = clip.resize(height=640)
     clip = clip.crop(x_center=clip.size[0]//2, width=640)
 
-    clip.write_videofile(f"videos/converted/{file_id}.mp4")
+    clip.write_videofile(f"videos/converted/{file_id}.mp4", codec="mpeg4")
 
 def compress_video(file_id):
     pass

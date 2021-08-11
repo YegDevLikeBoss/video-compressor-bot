@@ -13,6 +13,7 @@ CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = TeleBot(TOKEN)
+bot.SESSION_TIME_TO_LIVE = 5 * 60
 server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
@@ -39,7 +40,11 @@ def command_callback(call):
     bot.delete_message(call.from_user.id, call.message.message_id)
     chat_action, send_method = ('record_video_note', bot.send_video_note) if command == ConversionType.NOTE_SIZE.value else ('upload_video', bot.send_video)
     create_video(videos[file_id], call.from_user, command, chat_action, send_method)
-
+    try:
+        os.remove(f'videos/{videos[file_id]}.mp4')
+        os.remove(f'videos/converted/{videos[file_id]}.mp4')
+    except PermissionError as e:
+        print(e)
 
 def save_file_by_id(file_id):
     file_url = bot.get_file_url(file_id)
@@ -51,22 +56,17 @@ def save_file_by_id(file_id):
 
     del file_data
 
-def compress_video(file_id, user):
-    '''save_file_by_id(file_id)
-    file_data = convert_video(file_data, ConversionType.SMALL_SIZE)
-    bot.send_chat_action(user.id, 'upload_video', timeout=5)
-    bot.send_video(user.id, file_data)
-    del file_data'''
-    pass
-
 def create_video(file_id, user, conversion_type, chat_action, send_method):
     save_file_by_id(file_id)
     convert_video(file_id, conversion_type)
     bot.send_chat_action(user.id, chat_action, timeout=5)
-    with open(f'videos/converted/{file_id}.mp4', "rb") as file_object:
-        data = file_object.read()
-        send_method(user.id, data)
-        del data
+    try:
+        with open(f'videos/converted/{file_id}.mp4', "rb") as file_object:
+            data = file_object.read()
+            send_method(user.id, data)
+            del data
+    except EnvironmentError as e:
+        print(e)
 
 @bot.message_handler(content_types=all_content_types_except_video)
 def echo_all(message):
