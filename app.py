@@ -13,6 +13,7 @@ CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = TeleBot(TOKEN)
+bot.SESSION_TIME_TO_LIVE = 5 * 60
 server = Flask(__name__)
 
 @bot.message_handler(commands=['start', 'help'])
@@ -26,8 +27,8 @@ def process_video(message):
     videos[short_id] = video_id
 
     markup = types.InlineKeyboardMarkup(row_width=2)
-    itembtn1 = types.InlineKeyboardButton('сжать видео', callback_data=f"{COMPRESS_VIDEO}:{short_id}")
-    itembtn2 = types.InlineKeyboardButton('прислать video note', callback_data=f"{CREATE_VIDEO_NOTE}:{short_id}")
+    itembtn1 = types.InlineKeyboardButton('сжать видео', callback_data=f"{ConversionType.SMALL_SIZE.value}:{short_id}")
+    itembtn2 = types.InlineKeyboardButton('прислать video note', callback_data=f"{ConversionType.NOTE_SIZE.value}:{short_id}")
     markup.add(itembtn1, itembtn2)
 
     bot.send_message(message.chat.id, "Получил видео, что с ним сделать?", reply_markup=markup)
@@ -37,28 +38,35 @@ def command_callback(call):
     command, file_id = call.data.split(':')
     bot.send_message(call.from_user.id, "Разбираюсь")
     bot.delete_message(call.from_user.id, call.message.message_id)
-    if command == COMPRESS_VIDEO:
-        compress_video(videos[file_id], call.from_user)
-    elif command == CREATE_VIDEO_NOTE:
-        create_video_note(videos[file_id], call.from_user)
+    chat_action, send_method = ('record_video_note', bot.send_video_note) if command == ConversionType.NOTE_SIZE.value else ('upload_video', bot.send_video)
+    create_video(videos[file_id], call.from_user, command, chat_action, send_method)
+    try:
+        os.remove(f'videos/{videos[file_id]}.mp4')
+        os.remove(f'videos/converted/{videos[file_id]}.mp4')
+    except PermissionError as e:
+        print(e)
 
-def get_file_by_id(file_id):
+def save_file_by_id(file_id):
     file_url = bot.get_file_url(file_id)
-    return bot.download_file('videos/' + file_url.split('/')[-1])
+    file_data = bot.download_file('videos/' + file_url.split('/')[-1])
 
-def compress_video(file_id, user):
-    file_data = get_file_by_id(file_id)
-    file_data = convert_video(file_data, ConversionType.SMALL_SIZE)
-    bot.send_chat_action(user.id, 'upload_video', timeout=5)
-    bot.send_video(user.id, file_data)
+    video_file = open(f"videos/{file_id}.mp4", "ab")
+    video_file.write(file_data)
+    video_file.close()
+
     del file_data
 
-def create_video_note(file_id, user):
-    file_data = get_file_by_id(file_id)
-    file_data = convert_video(file_data, ConversionType.NOTE_SIZE)
-    bot.send_chat_action(user.id, 'record_video_note', timeout=5)
-    bot.send_video_note(user.id, file_data)
-    del file_data
+def create_video(file_id, user, conversion_type, chat_action, send_method):
+    save_file_by_id(file_id)
+    convert_video(file_id, conversion_type)
+    bot.send_chat_action(user.id, chat_action, timeout=5)
+    try:
+        with open(f'videos/converted/{file_id}.mp4', "rb") as file_object:
+            data = file_object.read()
+            send_method(user.id, data)
+            del data
+    except EnvironmentError as e:
+        print(e)
 
 @bot.message_handler(content_types=all_content_types_except_video)
 def echo_all(message):
