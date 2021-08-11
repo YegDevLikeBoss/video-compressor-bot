@@ -5,12 +5,10 @@ import telebot
 from telebot import TeleBot, types
 from flask import Flask, request
 
-from video_convertor import convert_video, ConversionType
+from video_convertor import convert_video
+from utils import ConversionType, ContentTypes
 
-all_content_types_except_video = ['text', 'audio', 'document', 'animation', 'game', 'photo', 'sticker', 'video_note', 'voice', 'contact', 'location', 'venue', 'dice', 'new_chat_members', 'left_chat_member', 'new_chat_title', 'new_chat_photo', 'delete_chat_photo', 'group_chat_created', 'supergroup_chat_created', 'channel_chat_created', 'migrate_to_chat_id', 'migrate_from_chat_id', 'pinned_message', 'invoice', 'successful_payment', 'connected_website', 'poll', 'passport_data', 'proximity_alert_triggered', 'voice_chat_scheduled', 'voice_chat_started', 'voice_chat_ended', 'voice_chat_participants_invited', 'message_auto_delete_timer_changed']
 videos = {}
-COMPRESS_VIDEO = 'compress'
-CREATE_VIDEO_NOTE = 'create_note'
 TOKEN = os.environ.get('TELEGRAM_BOT_TOKEN')
 DEBUG = bool(int(os.environ.get('DEBUG', 0)))
 bot = TeleBot(TOKEN)
@@ -59,6 +57,7 @@ def save_file_by_id(file_id):
 
 def create_video(file_id, user, conversion_type, chat_action, send_method):
     save_file_by_id(file_id)
+    bot.send_chat_action(user.id, 'record_video', timeout=90)
     convert_video(file_id, conversion_type)
     bot.send_chat_action(user.id, chat_action, timeout=5)
     try:
@@ -69,7 +68,7 @@ def create_video(file_id, user, conversion_type, chat_action, send_method):
     except EnvironmentError as e:
         print(e)
 
-@bot.message_handler(content_types=all_content_types_except_video)
+@bot.message_handler(content_types=ContentTypes.as_list(ContentTypes.VIDEO))
 def echo_all(message):
     bot.send_message(message.chat.id, "Моя твоя не понимать, лучше скинь видео")
 

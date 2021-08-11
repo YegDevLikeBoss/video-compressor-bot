@@ -1,9 +1,6 @@
-from enum import Enum
 from moviepy.editor import VideoFileClip
 
-class ConversionType(Enum):
-    SMALL_SIZE = 'small_size'
-    NOTE_SIZE = 'note_size'
+from utils import ConversionType
 
 def convert_video(file_id, conversion_type):
     conversion_type = ConversionType(conversion_type)
